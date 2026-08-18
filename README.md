@@ -19,8 +19,9 @@ ARD Guard provides a small, dependency-free gate that can run before installatio
 - insecure `http://` resource URLs
 - mutable GitHub refs such as `/main`, `/master`, and `latest`
 - pipe-to-shell install patterns such as `curl ... | sh` or `iwr ... | iex`
-- unpinned package installation commands
+- unpinned package installation commands, including installs hidden behind `sudo`
 - high-risk privilege indicators such as `sudo`, `--privileged`, `docker.sock`, and `chmod 777`
+- possible environment-secret collection followed by external transmission
 - missing publisher/operator/source metadata on resource-like objects
 
 Every finding has a stable rule ID, severity, JSON path, and explanation.
@@ -28,13 +29,15 @@ Every finding has a stable rule ID, severity, JSON path, and explanation.
 ## Quick start
 
 ```bash
-python -m ard_guard scan catalog.json
+python -m pip install -e .
+python -m ard_guard scan examples/safe.json
+python -m ard_guard scan examples/risky.json
 python -m ard_guard scan catalog.json --format json
 ```
 
 Exit codes:
 
-- `0`: no blocking findings
+- `0`: no findings
 - `1`: one or more findings
 - `2`: invalid input or execution error
 
@@ -45,12 +48,15 @@ Exit codes:
 3. **Provider-neutral.** Work with ARD/AI Catalog style JSON without requiring one vendor.
 4. **Fail-closed where ambiguity is dangerous.** A mutable source reference should not be treated as equivalent to an immutable artifact.
 5. **Automation-friendly.** Human-readable and JSON output, deterministic rule IDs, useful exit codes.
+6. **Safe by construction.** Scanning never executes installation instructions or scanned repository content.
 
 ## Scope
 
 ARD Guard is not a malware sandbox and does not claim to prove that a resource is safe. It is a policy and provenance gate. Deeper code analysis belongs to dedicated scanners; runtime containment belongs to sandboxes.
 
 ## Roadmap
+
+The tracked roadmap lives in GitHub issue #1. Major targets include:
 
 - ARD v0.9 schema-aware resource extraction
 - GitHub commit/tag resolution and lockfile generation
@@ -63,4 +69,4 @@ ARD Guard is not a malware sandbox and does not claim to prove that a resource i
 
 ## License
 
-Apache-2.0 is planned for the project. A license file will be added before the first tagged release.
+Apache License 2.0. See `LICENSE`.

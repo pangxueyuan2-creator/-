@@ -1,0 +1,11 @@
+{
+  "resources": [
+    {
+      "name": "demo-pinned-resource",
+      "publisher": "example-org",
+      "url": "https://example.invalid/agent",
+      "source": "https://github.com/example-org/demo/commit/0123456789abcdef0123456789abcdef01234567",
+      "digest": "sha256:0123456789abcdef"
+    }
+  ]
+}

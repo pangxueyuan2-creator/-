@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import asdict, dataclass
 from enum import StrEnum
@@ -40,6 +42,7 @@ class Finding:
 @dataclass(frozen=True, slots=True)
 class ScanReport:
     findings: tuple[Finding, ...]
+    document_sha256: str
 
     @property
     def risk_score(self) -> int:
@@ -59,6 +62,7 @@ class ScanReport:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "document_sha256": self.document_sha256,
             "risk_score": self.risk_score,
             "highest_severity": self.highest_severity.value if self.highest_severity else None,
             "finding_count": len(self.findings),
@@ -121,6 +125,17 @@ def _walk(value: Any, parent: str = "$") -> Iterable[tuple[str, Any]]:
 def _short(text: str, limit: int = 180) -> str:
     compact = " ".join(text.split())
     return compact if len(compact) <= limit else compact[: limit - 1] + "…"
+
+
+def _document_fingerprint(document: Any) -> str:
+    canonical = json.dumps(
+        document,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def _string_findings(path: str, text: str) -> list[Finding]:
@@ -230,6 +245,7 @@ def _resource_findings(path: str, obj: dict[str, Any]) -> list[Finding]:
 def scan_document(document: Any) -> ScanReport:
     """Scan a decoded JSON-compatible document and return deterministic findings."""
 
+    fingerprint = _document_fingerprint(document)
     findings: list[Finding] = []
     for path, value in _walk(document):
         if isinstance(value, str):
@@ -242,4 +258,4 @@ def scan_document(document: Any) -> ScanReport:
         (f.rule_id, f.severity.value, f.path, f.message, f.evidence): f for f in findings
     }
     ordered = sorted(unique.values(), key=lambda f: (f.path, f.rule_id, f.message))
-    return ScanReport(tuple(ordered))
+    return ScanReport(tuple(ordered), fingerprint)

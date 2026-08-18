@@ -22,6 +22,7 @@ def test_safe_pinned_resource_has_no_findings():
     assert report.findings == ()
     assert report.risk_score == 0
     assert report.highest_severity is None
+    assert len(report.document_sha256) == 64
 
 
 def test_detects_pipe_to_shell_mutable_ref_and_http():
@@ -60,3 +61,13 @@ def test_findings_are_deduplicated_and_stably_sorted():
     report = scan_document(document)
 
     assert [finding.path for finding in report.findings] == ["$.a", "$.b"]
+
+
+def test_document_fingerprint_is_canonical_across_key_order():
+    first = scan_document({"name": "tool", "meta": {"b": 2, "a": 1}})
+    second = scan_document({"meta": {"a": 1, "b": 2}, "name": "tool"})
+    changed = scan_document({"name": "tool", "meta": {"a": 1, "b": 3}})
+
+    assert first.document_sha256 == second.document_sha256
+    assert first.document_sha256 != changed.document_sha256
+    assert first.to_dict()["document_sha256"] == first.document_sha256

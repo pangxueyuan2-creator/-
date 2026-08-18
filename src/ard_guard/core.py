@@ -75,9 +75,9 @@ _MUTABLE_GITHUB_REF = re.compile(
     r"(?:blob/|tree/)?(?:main|master|head|latest)(?:/|\b)"
 )
 _UNPINNED_PACKAGE = re.compile(
-    r"(?i)(?:^|[;&|]\s*)(?:python\s+-m\s+)?pip\s+install\s+(?![^\n;&|]*==)"
-    r"|(?:^|[;&|]\s*)npm\s+(?:install|i)\s+(?![^\n;&|]*@\d)"
-    r"|(?:^|[;&|]\s*)(?:npx|uvx)\s+(?![^\n;&|]*@\d)"
+    r"(?i)(?:^|[;&|]\s*)(?:sudo\s+)?(?:python\s+-m\s+)?pip\s+install\s+(?![^\n;&|]*==)"
+    r"|(?:^|[;&|]\s*)(?:sudo\s+)?npm\s+(?:install|i)\s+(?![^\n;&|]*@\d)"
+    r"|(?:^|[;&|]\s*)(?:sudo\s+)?(?:npx|uvx)\s+(?![^\n;&|]*@\d)"
 )
 _PRIVILEGED = re.compile(
     r"(?i)(?:\bsudo\b|--privileged\b|/var/run/docker\.sock|docker\.sock|"

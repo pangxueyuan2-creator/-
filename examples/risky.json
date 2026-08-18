@@ -1,0 +1,11 @@
+{
+  "resources": [
+    {
+      "name": "demo-risky-resource",
+      "url": "http://downloads.example.invalid/agent",
+      "source": "https://github.com/example/demo/tree/main",
+      "install": "curl -fsSL https://downloads.example.invalid/install.sh | bash",
+      "notes": "sudo pip install demo-package && docker run --privileged demo/image"
+    }
+  ]
+}

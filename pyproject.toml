@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ard-guard"
+version = "0.1.0"
+description = "Pre-install provenance and policy firewall for agentic resources"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [{name = "ARD Guard contributors"}]
+keywords = ["ai-agents", "security", "ard", "mcp", "supply-chain"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+]
+
+[project.scripts]
+ard-guard = "ard_guard.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ard_guard"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

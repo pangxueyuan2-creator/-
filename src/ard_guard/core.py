@@ -8,6 +8,7 @@ import re
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any, Iterable
+from urllib.parse import urlparse
 
 
 class Severity(StrEnum):
@@ -91,6 +92,8 @@ _SECRET_HARVEST = re.compile(
     r"(?i)(?:printenv|\benv\b|set)\s*(?:\||>|>>).{0,120}(?:curl|wget|http)"
     r"|(?:curl|wget).{0,180}(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD)"
 )
+_MCP_GITHUB_NAMESPACE = re.compile(r"(?i)^io\.github\.([a-z0-9_.-]+)/")
+_GITHUB_IDENTITY = re.compile(r"(?i)^(?:github:|@)([a-z0-9](?:[a-z0-9-]{0,38}))$")
 
 _RESOURCE_ENDPOINT_KEYS = {
     "url",
@@ -104,6 +107,7 @@ _RESOURCE_ENDPOINT_KEYS = {
 }
 _RESOURCE_NAME_KEYS = {"name", "title", "id"}
 _IDENTITY_KEYS = {"publisher", "operator", "owner", "provider", "organization", "author"}
+_PROVENANCE_KEYS = {"source", "repository", "repository_url"}
 
 
 def _path(parent: str, key: str | int) -> str:
@@ -136,6 +140,86 @@ def _document_fingerprint(document: Any) -> str:
         allow_nan=False,
     ).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
+
+
+def _github_owner(value: str) -> str | None:
+    """Return a GitHub owner only for canonical GitHub repository/content URLs."""
+
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return None
+    host = (parsed.hostname or "").lower()
+    if host not in {"github.com", "www.github.com", "raw.githubusercontent.com"}:
+        return None
+    segments = [segment for segment in parsed.path.split("/") if segment]
+    if len(segments) < 2:
+        return None
+    return segments[0].lower()
+
+
+def _declared_identity(value: Any) -> str | None:
+    """Extract only identity forms that explicitly claim a GitHub account."""
+
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    github_owner = _github_owner(text)
+    if github_owner:
+        return github_owner
+    match = _GITHUB_IDENTITY.fullmatch(text)
+    return match.group(1).lower() if match else None
+
+
+def _github_provenance_owners(obj: dict[str, Any]) -> set[str]:
+    owners: set[str] = set()
+    for key, value in obj.items():
+        if str(key).lower() not in _PROVENANCE_KEYS or not isinstance(value, str):
+            continue
+        owner = _github_owner(value)
+        if owner:
+            owners.add(owner)
+    return owners
+
+
+def _identity_binding_findings(path: str, obj: dict[str, Any]) -> list[Finding]:
+    """Detect contradictions between declared identity and GitHub provenance.
+
+    This is deliberately offline and conservative: only explicit GitHub identities and
+    the MCP Registry's verified ``io.github.<owner>/...`` namespace are compared.
+    Free-form publisher names are not guessed into GitHub accounts.
+    """
+
+    source_owners = _github_provenance_owners(obj)
+    if not source_owners:
+        return []
+
+    claims: set[tuple[str, str]] = set()
+    for key, value in obj.items():
+        key_lower = str(key).lower()
+        if key_lower in _IDENTITY_KEYS:
+            identity = _declared_identity(value)
+            if identity:
+                claims.add((key_lower, identity))
+        if key_lower in {"name", "id"} and isinstance(value, str):
+            match = _MCP_GITHUB_NAMESPACE.match(value.strip())
+            if match:
+                claims.add(("mcp-namespace", match.group(1).lower()))
+
+    findings: list[Finding] = []
+    for claim_type, claimed_owner in sorted(claims):
+        if claimed_owner in source_owners:
+            continue
+        findings.append(
+            Finding(
+                "AG009",
+                Severity.HIGH,
+                path,
+                "Declared GitHub identity conflicts with the GitHub source owner.",
+                f"{claim_type}={claimed_owner}; source_owner={','.join(sorted(source_owners))}",
+            )
+        )
+    return findings
 
 
 def _string_findings(path: str, text: str) -> list[Finding]:
@@ -239,6 +323,7 @@ def _resource_findings(path: str, obj: dict[str, Any]) -> list[Finding]:
             )
         )
 
+    findings.extend(_identity_binding_findings(path, obj))
     return findings
 
 
@@ -257,5 +342,5 @@ def scan_document(document: Any) -> ScanReport:
     unique = {
         (f.rule_id, f.severity.value, f.path, f.message, f.evidence): f for f in findings
     }
-    ordered = sorted(unique.values(), key=lambda f: (f.path, f.rule_id, f.message))
+    ordered = sorted(unique.values(), key=lambda f: (f.path, f.rule_id, f.message, f.evidence or ""))
     return ScanReport(tuple(ordered), fingerprint)

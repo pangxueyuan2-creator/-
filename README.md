@@ -23,8 +23,20 @@ ARD Guard provides a small, dependency-free gate that can run before installatio
 - high-risk privilege indicators such as `sudo`, `--privileged`, `docker.sock`, and `chmod 777`
 - possible environment-secret collection followed by external transmission
 - missing publisher/operator/source metadata on resource-like objects
+- contradictions between an explicit GitHub publisher identity or verified-style MCP `io.github.<owner>/...` namespace and the GitHub owner that actually hosts the declared source
 
 Every finding has a stable rule ID, severity, JSON path, and explanation.
+
+### Provenance identity binding
+
+Rule `AG009` is an offline anti-impersonation check. It compares only strong identity claims that can be interpreted without guessing:
+
+- explicit identities such as `github:trusted-org`, `@trusted-org`, or `https://github.com/trusted-org`
+- MCP Registry-style names such as `io.github.trusted-org/server-name`
+
+If the same resource points at a GitHub repository owned by a different account, ARD Guard reports a high-severity provenance conflict. Free-form publisher names are intentionally not coerced into GitHub usernames, which keeps the rule deterministic and avoids turning brand names into speculative identity claims.
+
+This check is useful at the discovery-to-connection boundary used by ARD and Agent Finder, and for MCP/Agent Skill metadata that ultimately points at GitHub-hosted code. It performs no network requests and never executes scanned instructions or repository content.
 
 ## Quick start
 

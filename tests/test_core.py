@@ -56,6 +56,76 @@ def test_resource_metadata_gaps_are_reported():
     assert {"AG007", "AG008"} <= rule_ids(report)
 
 
+def test_explicit_github_publisher_must_match_source_owner():
+    report = scan_document(
+        {
+            "name": "agent-skill",
+            "publisher": "github:trusted-org",
+            "source": "https://github.com/typosquat-org/agent-skill/commit/0123456789abcdef",
+            "digest": "sha256:abc123",
+        }
+    )
+
+    findings = [finding for finding in report.findings if finding.rule_id == "AG009"]
+    assert len(findings) == 1
+    assert findings[0].severity == Severity.HIGH
+    assert "trusted-org" in (findings[0].evidence or "")
+    assert "typosquat-org" in (findings[0].evidence or "")
+
+
+def test_github_profile_url_identity_matches_source_case_insensitively():
+    report = scan_document(
+        {
+            "name": "agent-skill",
+            "publisher": "https://github.com/Trusted-Org",
+            "source": "https://github.com/trusted-org/agent-skill/commit/0123456789abcdef",
+            "digest": "sha256:abc123",
+        }
+    )
+
+    assert "AG009" not in rule_ids(report)
+
+
+def test_mcp_io_github_namespace_must_match_source_owner():
+    report = scan_document(
+        {
+            "name": "io.github.trusted-org/server-name",
+            "publisher": "trusted vendor",
+            "repository": "https://github.com/lookalike-org/server-name/commit/0123456789abcdef",
+            "digest": "sha256:abc123",
+        }
+    )
+
+    assert "AG009" in rule_ids(report)
+    assert report.highest_severity == Severity.HIGH
+
+
+def test_free_form_publisher_is_not_guessed_into_github_identity():
+    report = scan_document(
+        {
+            "name": "agent-skill",
+            "publisher": "Acme Security Research",
+            "source": "https://github.com/acme-labs/agent-skill/commit/0123456789abcdef",
+            "digest": "sha256:abc123",
+        }
+    )
+
+    assert "AG009" not in rule_ids(report)
+
+
+def test_non_github_provenance_does_not_trigger_identity_binding():
+    report = scan_document(
+        {
+            "name": "agent-skill",
+            "publisher": "github:trusted-org",
+            "source": "https://code.example.test/trusted-org/agent-skill",
+            "digest": "sha256:abc123",
+        }
+    )
+
+    assert "AG009" not in rule_ids(report)
+
+
 def test_findings_are_deduplicated_and_stably_sorted():
     document = {"b": "http://b.test", "a": "http://a.test"}
     report = scan_document(document)
